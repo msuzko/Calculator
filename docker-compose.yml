@@ -1,0 +1,12 @@
+version: '3.9'
+services:
+  calculator:
+    container_name: calculator
+#    build: ./
+    image: calculator
+    networks:
+      - network-1
+    ports:
+      - "8080:8080"
+networks:
+  network-1:
