@@ -1,0 +1,25 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      # Получаем URI ECR репозитория. Замените 'my-spring-app' на имя вашего репозитория.
+      - REPO_URI=$(aws ecr describe-repositories --repository-names calculator --query "repositories[0].repositoryUri" --output text)
+      # Аутентификация Docker с ECR
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPO_URI
+      # Если ваш Spring Boot JAR не собирается в Dockerfile (например, вы собираете его с Maven/Gradle отдельно):
+      # - ./gradlew build # или ./mvnw package
+  build:
+    commands:
+      # Собираем Docker образ. Тегируем его URI репозитория ECR.
+      - docker build -t $REPO_URI:latest .
+  post_build:
+    commands:
+      # Отправляем образ в ECR
+      - docker push $REPO_URI:latest
+      # Опционально: создаем imagedefinitions.json для AWS CodeDeploy
+      - printf '[{"name":"my-spring-app","imageUri":"%s"}]' $REPO_URI:latest > imagedefinitions.json
+
+artifacts:
+  files:
+    - imagedefinitions.json # Если используется для AWS CodeDeploy
