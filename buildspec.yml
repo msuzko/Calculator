@@ -1,17 +1,34 @@
 version: 0.2
 
 phases:
+  install:
+    commands:
+    # Опционально: Если для сборки Spring Boot нужны специальные инструменты,
+    # например, Node.js для фронтенда, если он является частью проекта
+    # - apt-get update -y && apt-get install -y nodejs npm
   pre_build:
     commands:
       # Получаем URI ECR репозитория. Замените 'my-spring-app' на имя вашего репозитория.
       - REPO_URI=$(aws ecr describe-repositories --repository-names calculator --query "repositories[0].repositoryUri" --output text)
       # Аутентификация Docker с ECR
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPO_URI
-      # Если ваш Spring Boot JAR не собирается в Dockerfile (например, вы собираете его с Maven/Gradle отдельно):
-      # - ./gradlew build # или ./mvnw package
+
+      # --- НОВАЯ ФАЗА: Сборка Spring Boot приложения ---
+      # Если вы используете Gradle:
+      - echo "Building Spring Boot application with Gradle..."
+      - chmod +x gradlew # Делаем gradlew исполняемым
+      - ./gradlew clean build -x test # Собираем проект, пропуская тесты (для ускорения CI, если тесты проходят отдельно)
+      # Или, если вы используете Maven:
+      # - echo "Building Spring Boot application with Maven..."
+      # - chmod +x mvnw # Делаем mvnw исполняемым
+      # - ./mvnw clean package -DskipTests # Собираем проект, пропуская тесты
+      # --------------------------------------------------
+
   build:
     commands:
       # Собираем Docker образ. Тегируем его URI репозитория ECR.
+      # Убедитесь, что ваш Dockerfile копирует JAR-файл из ./build/libs/ (для Gradle)
+      # или из ./target/ (для Maven)
       - docker build -t $REPO_URI:latest .
   post_build:
     commands:
